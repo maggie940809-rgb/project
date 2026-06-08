@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <style>
+    @media print {
+        @page { size: 80mm 180mm !important; margin: 0mm !important; }
+        html, body { margin: 0 !important; padding: 0 !important; width: 80mm !important; height: 180mm !important; overflow: hidden !important; background: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        #main-app-content { display: none !important; }
+        #receipt-print-area { display: block !important; position: absolute !important; top: -2mm !important; left: -6px !important; width: 80mm !important; height: 180mm !important; padding: 0 1.5mm !important; box-sizing: border-box !important; background: #ffffff !important; overflow: hidden !important; }
+    }
+    .receipt-container { position: relative; width: 78mm; height: 180mm; background: #ffffff; overflow: hidden; }
+    .bg-img { width: 100% !important; height: 100% !important; object-fit: contain !important; display: block !important; margin: 0 !important; padding: 0 !important; }
+    .overlay-price { position: absolute; left: 51%; transform: translateX(-50%); color: #ffeb3b; font-family: 'Arial Black', Impact, sans-serif; font-size: 28px; font-weight: 900; text-shadow: 2px 2px 0px #d81b60; z-index: 10; white-space: nowrap; text-align: center; top: 16%; }
+    .receipt-text-block { position: absolute; top: 68.5%; left: 11%; width: 78%; height: 44mm; overflow: hidden; color: #222222; font-family: 'PingFang TC', 'Heiti TC', sans-serif; font-size: 10px; font-weight: 700; line-height: 1.4; text-align: left; display: flex; flex-direction: column; gap: 3px; z-index: 10; }
+    .receipt-line { white-space: normal; word-break: break-all; margin: 0; padding: 0; }
+    
+    /* 🛠️ 修正點：移除 padding-left 的內縮，將顏色與字重調成與上方一致，達到完美垂直對齊 */
+    .slogan-block { 
+        color: #222222; 
+        font-weight: 700; 
+        padding-left: 0px !important; 
+        margin-top: 0px; 
+        line-height: 1.4; 
+    }
+    
+    .total-line { text-align: right; margin-top: 7.6px; font-size: 10px; font-weight: 900; }
+    .total-highlight { color: #e91e63; font-weight: 900; }
+    .receipt-footer-block { position: absolute; bottom: 7.3%; left: 9%; width: 82%; z-index: 10; line-height: 1.2; }
+    .footer-disclaimer { color: #222222; font-family: 'PingFang TC', 'Heiti TC', sans-serif; font-size: 10px; font-weight: bold; text-align: left; opacity: 0.9; }
+    
+    #res-price {
+        display: block !important;
+        visibility: visible !important;
+        z-index: 9999 !important;
+        color: #ffeb3b !important;
+    }
+    </style>
+</head>
+<body>
+
+<div id="receipt-print-area">
+    <div class="receipt-container">
+        <img id="r-img" class="bg-img" src="" alt="">
+        <div class="overlay-price" id="res-price"></div>
+        <div class="receipt-text-block">
+            <div id="res-date" class="receipt-line">Date: </div>
+            <div id="res-purchaser" class="receipt-line">Purchaser Info: </div>
+            <div id="res-buyer" class="receipt-line">Buyer Name: </div>
+            <div id="res-seller" class="receipt-line">Seller Name: </div>
+            <div id="res-slogan" class="receipt-line slogan-block"> </div>
+            <div id="res-total" class="receipt-line total-line">Total Amount Paid: <span class="total-highlight"></span></div>
+        </div>
+        <div class="receipt-footer-block">
+            <div class="footer-disclaimer">此交易不可逆轉<br>最終銷售。</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const slogans = ["你不需要活得毫無瑕疵，不完美才是靈魂最真實的收藏品。", "世界其實沒有那麼多人在看你。放鬆下來，躲在陰影裡休息也沒關係。", "憤怒是渴望被愛的一種變體。這一次，別再把矛頭指向傷痕累累的自己了。", "人生不是每一步都需要精準的投報率。現在走錯的路，也會是未來沿途的風景。", "承認自己的脆弱，並不代表你輸了，而是你終於開始對自己誠實。", "那些讓你失眠的細節，在歲月的長河裡，其實都只是微小的塵埃。"
+        ,"你已經很努力了，不必再用焦慮證明自己的認真。", "有些事沒有標準答案，而你也不需要永遠正確。", "不是因為你不夠好才會內耗，而是因為你太想把一切做好。", "那些讓你反覆糾結的事，終究不會定義你的人生。", "請把對別人的溫柔，留一點給自己。", "你可以不完美、不勇敢、不堅強，但依然值得被喜歡。", "有些重量該放下了，因為你不是用來背負一切的。","別把自己困在想像的評分標準裡。","你不是問題本身，只是暫時被問題困住了。","人生不是競標會，你的價值不需要等待別人出價。"
+     ];
+    const bc = new BroadcastChannel('spirit_channel');
+    const images = ["狂熱收藏家.png", "社交恐懼體.png", "破壞狂.png", "精算師.png"];
+    const roleNames = ["狂熱收藏家", "社交恐懼體", "破壞狂", "精算師"];
+
+    function calculatePrice() {
+        const stressVal = parseInt(document.getElementById("mainStress").value) || 50;
+        const finalPrice = (stressVal * 983) + 145;
+        document.getElementById("res-price").innerText = finalPrice + "$";
+        return finalPrice;
+    }
+    
+    const firebaseConfig = {
+        apiKey: "AIzaSyD9etEUx2Xmo924hhgavwOlNniw96-bxig",
+        authDomain: "project12-c8d5e.firebaseapp.com",
+        databaseURL: "https://project12-c8d5e-default-rtdb.firebaseio.com",
+        projectId: "project12-c8d5e",
+        storageBucket: "project12-c8d5e.firebasestorage.app",
+        messagingSenderId: "318629555284",
+        appId: "1:318629555284:web:9deebad84ed4888de1d1c1",
+        measurementId: "G-6T7WXDHVXJ"
+    };
+
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const database = firebase.database();
+
+    // 在 p.html 的 Firebase 監聽區塊
+let lastPrintedTimestamp = 0; // 用來防止重複列印
+
+database.ref('spirit_cmd').on('value', (snapshot) => {
+    const data = snapshot.val();
+    
+    // 只有在動作為 'ANIMATION_ENDED' 且時間戳記比上一次新的時候才執行
+    if (data && data.action === 'ANIMATION_ENDED' && data.timestamp > lastPrintedTimestamp) {
+        lastPrintedTimestamp = data.timestamp; // 更新檢查時間
+        
+        console.log("偵測到動畫結束，準備列印");
+        const d = data.receiptData;
+        
+        // 確保數據存在才執行
+        if (d) {
+            document.getElementById('r-img').src = d.imgSrc;
+            document.getElementById("res-price").innerText = d.price;
+            document.getElementById('res-date').innerText = d.date;
+            document.getElementById('res-buyer').innerText = d.buyer;
+            document.getElementById('res-seller').innerText = d.seller;
+            document.getElementById('res-slogan').innerText = d.slogan;
+            document.getElementById('res-total').innerHTML = d.total;
+            
+            // 延遲執行列印，確保 DOM 渲染完畢
+            setTimeout(() => { 
+                window.print(); 
+            }, 500);
+        }
+    }
+});
+</script>
+</body>
+</html>

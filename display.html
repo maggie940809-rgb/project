@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>靈魂動畫接收端</title>
+    <style>
+        body { 
+            margin: 0; background: #000; overflow: hidden; height: 100vh; 
+            /* 🌟 終極物理防禦：讓整個動畫網頁直接在螢幕上上下顛倒 180 度 */
+            transform: rotate(180deg) !important;
+            transform-origin: center center !important;
+            width: 100vw;
+        }
+        #standby, #vPlayer { 
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            object-fit: cover; transition: opacity 0.5s ease; 
+        }
+        #vPlayer { opacity: 0; z-index: 2; }
+        #standby { opacity: 1; z-index: 1; }
+        
+        /* 🌟 啟動按鈕也跟著倒過來，方便你在大螢幕上操作 */
+        #btn-init {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); color: #fff; z-index: 300;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <script>
+        // ====== 🔑 設定與平板完全一致的 Firebase 金鑰 ======
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9etEUx2Xmo924hhgavwOlNniw96-bxig",
+            authDomain: "project12-c8d5e.firebaseapp.com",
+            databaseURL: "https://project12-c8d5e-default-rtdb.firebaseio.com",
+            projectId: "project12-c8d5e",
+            storageBucket: "project12-c8d5e.firebasestorage.app",
+            messagingSenderId: "318629555284",
+            appId: "1:318629555284:web:9deebad84ed4888de1d1c1",
+            measurementId: "G-6T7WXDHVXH"
+        };
+
+        // 正式啟動大螢幕的雲端連線
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+    </script>
+</head>
+<body>
+
+    <div id="btn-init">
+        <h2>啟動顯示系統 (按完後請勿關閉此頁)</h2>
+    </div>
+
+    <video id="standby" src="standby.mp4" autoplay loop muted playsinline></video>
+    <video id="vPlayer" muted playsinline></video>
+
+<script>
+    const vPlayer = document.getElementById('vPlayer');
+    const standby = document.getElementById('standby');
+    const pageLoadTime = Date.now();
+    const bc = new BroadcastChannel('spirit_channel');
+
+    // 建立一個隱藏的結尾影片元素
+    const vEnding = document.createElement('video');
+    vEnding.src = "ending.mp4"; // 確保此檔在資料夾內
+    vEnding.style.cssText = "position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover; transition: opacity 0.5s ease; opacity: 0; z-index: 2;";
+    document.body.appendChild(vEnding);
+
+    // 🎬 核心播放功能
+    function playVideo(src) {
+        standby.pause();
+        vPlayer.src = src;
+        vPlayer.muted = false;
+        vPlayer.style.opacity = '1';
+        standby.style.opacity = '0';
+        vPlayer.play();
+    }
+
+    // 1. 主動畫結束 -> 觸發播放結尾影片
+    vPlayer.onended = () => {
+        console.log("🎬 主動畫結束，開始播放結尾影片");
+        vPlayer.style.opacity = '0';
+        vEnding.muted = false;
+        vEnding.style.opacity = '1';
+        vEnding.play();
+    };
+
+    // 2. 結尾影片結束 -> 觸發列印指令 & 回待機
+    // 在 vEnding.onended 內替換掉原本的寫入區塊
+// 在 display.html 的 vEnding.onended 內
+vEnding.onended = () => {
+    // 取得當前的收據數據（確保內容不遺失）
+    database.ref('spirit_cmd').once('value').then((snapshot) => {
+        const currentData = snapshot.val();
+        
+        // 嚴格更新：僅更新動作與時間，保留收據資料
+        database.ref('spirit_cmd').update({
+            action: 'ANIMATION_ENDED', 
+            timestamp: Date.now() // 使用新的時間戳記
+        });
+    });
+    
+    // 回復待機
+    vEnding.style.opacity = '0';
+    standby.style.opacity = '1';
+    standby.play();
+};
+    // Firebase 監聽
+    database.ref('spirit_cmd').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.action === 'PLAY_VIDEO' && data.timestamp > pageLoadTime) {
+            playVideo(data.src);
+        }
+    });
+
+    // 解鎖按鈕
+    document.getElementById('btn-init').onclick = function() {
+        this.style.display = 'none';
+        standby.muted = false;
+        standby.play();
+    };
+</script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+    :root {
+        --pink-main: #ff85b3;
+        --pink-dark: #ff3385;
+        --bg-pink: #fff0f5;
+    }
+    body { 
+        margin: 0; 
+        padding: 0; 
+        font-family: 'Courier New', Courier, monospace; 
+        /* 🪙 完美對齊：使用相對路徑讀取專案資料夾的金屬背景圖片 */
+        background-image: url('47.jpg'); 
+        background-size: 640px; 
+        background-repeat: repeat; 
+        background-attachment: fixed; 
+        min-height: 100vh; 
+        color: #ff6699; 
+    }
+    
+    .container { width: 100%; max-width: 420px; margin: 0 auto; padding: 20px; box-sizing: border-box; }
+    .hero { text-align: center; padding: 20px 0; }
+    .hero img { width: 30%; animation: float 1.7s ease-in-out infinite; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+    /* 視窗化卡片設計 */
+    .card { background: #fff; border: 3px solid var(--pink-main); margin-bottom: 25px; padding: 15px; box-shadow: 6px 6px 0px var(--pink-main); position: relative; }
+    .window-header { background: var(--pink-main); color: #fff; padding: 4px 8px; font-size: 10px; margin: -15px -15px 15px -15px; font-weight: bold; display: flex; justify-content: space-between; }
+    
+    .label-group { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .value { background: var(--pink-dark); color: #fff; padding: 2px 8px; font-size: 12px; }
+
+    /* 像素拉桿 */
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 12px; background: #ffe4e1; border: 2px solid var(--pink-main); }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--pink-main); border: 4px solid #fff; cursor: pointer; transition: 0.2s; }
+    input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.3); }
+
+    textarea, input[type="text"] { width: 100%; border: 2px solid var(--pink-main); padding: 10px; box-sizing: border-box; outline: none; font-size: 16px; color: var(--pink-dark); }
+    
+    .submit { width: 100%; padding: 18px; border: none; background: var(--pink-dark); color: #fff; font-size: 18px; font-weight: 900; cursor: pointer; box-shadow: 4px 4px 0px #b3245c; transition: 0.2s; }
+    .submit:active { transform: translate(2px, 2px); box-shadow: none; }
+    #receipt-print-area { display: none; }
+    @media print {
+        @page { size: 80mm 180mm !important; margin: 0mm !important; }
+        html, body { margin: 0 !important; padding: 0 !important; width: 80mm !important; height: 180mm !important; overflow: hidden !important; background: #ffffff !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        #main-app-content { display: none !important; }
+        #receipt-print-area { display: block !important; position: absolute !important; top: -2mm !important; left: -6px !important; width: 80mm !important; height: 180mm !important; padding: 0 1.5mm !important; box-sizing: border-box !important; background: #ffffff !important; overflow: hidden !important; }
+    }
+    .receipt-container { position: relative; width: 78mm; height: 180mm; background: #ffffff; overflow: hidden; }
+    .bg-img { width: 100% !important; height: 100% !important; object-fit: contain !important; display: block !important; margin: 0 !important; padding: 0 !important; }
+    .overlay-price { position: absolute; left: 51%; transform: translateX(-50%); color: #ffeb3b; font-family: 'Arial Black', Impact, sans-serif; font-size: 28px; font-weight: 900; text-shadow: 2px 2px 0px #d81b60; z-index: 10; white-space: nowrap; text-align: center; top: 16%; }
+    .receipt-text-block { position: absolute; top: 68.5%; left: 11%; width: 78%; height: 44mm; overflow: hidden; color: #222222; font-family: 'PingFang TC', 'Heiti TC', sans-serif; font-size: 10px; font-weight: 700; line-height: 1.4; text-align: left; display: flex; flex-direction: column; gap: 3px; z-index: 10; }
+    .receipt-line { white-space: normal; word-break: break-all; }
+    
+    /* 🌟 新增語錄專用的 CSS 樣式，使其縮排且字體微調，看起來更有層次 */
+    .slogan-block { color: #555555; font-weight: 500; padding-left: 10px; margin-top: 2px; line-height: 1.3; }
+    
+    .total-line { text-align: right; margin-top: 7.6px; font-size: 10px; font-weight: 900; }
+    .total-highlight { color: #e91e63; font-weight: 900; }
+    .receipt-footer-block { position: absolute; bottom: 7.3%; left: 9%; width: 82%; z-index: 10; line-height: 1.2; }
+    .footer-disclaimer { color: #222222; font-family: 'PingFang TC', 'Heiti TC', sans-serif; font-size: 10px; font-weight: bold; text-align: left; opacity: 0.9; }
+
+
+/* 🌟 將原本的 padding-left 改為 0px，字就會跟上方完全貼齊了 */
+.slogan-block { 
+    color: #555555; 
+    font-weight: 500; 
+    padding-left: 0px;  /* 👈 改成 0px，徹底解除向右推的力量 */
+    margin-top: 2px; 
+    line-height: 1.3; 
+}
+
+
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+<script>
+    // ====== 🔑 啟動金鑰設定 ======
+    const firebaseConfig = {
+        apiKey: "AIzaSyD9etEUx2Xmo924hhgavwOlNniw96-bxig",
+        authDomain: "project12-c8d5e.firebaseapp.com",
+        databaseURL: "https://project12-c8d5e-default-rtdb.firebaseio.com",
+        projectId: "project12-c8d5e",
+        storageBucket: "project12-c8d5e.firebasestorage.app",
+        messagingSenderId: "318629555284",
+        appId: "1:318629555284:web:9deebad84ed4888de1d1c1",
+        measurementId: "G-6T7WXDHVXJ"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+</script>
+
+</head>
+<body>
+
+<div id="main-app-content">
+    <div class="hero"><img src="standby.jpg" alt="Spirit"></div>
+
+    <div class="container" id="formPage">
+        <div class="card">
+            <div class="window-header">USER_INFO.EXE</div>
+            <div class="label-group"><p>👤 姓名</p></div>
+            <input type="text" id="userName" placeholder="請輸入姓名...">
+        </div>
+
+        <div class="card">
+            <div class="window-header">PRESSURE_SYSTEM.SYS</div>
+            <div class="label-group"><p>💼 工作壓力</p><span class="value" id="val-work">0 (・∀體)</span></div>
+            <input type="range" min="-5" max="5" value="0" oninput="updateRange('val-work', this.value)">
+            <div class="label-group" style="margin-top:15px;"><p>✨ 外貌焦慮</p><span class="value" id="val-look">0 (・∀體)</span></div>
+            <input type="range" min="-5" max="5" value="0" oninput="updateRange('val-look', this.value)">
+            <div class="label-group" style="margin-top:15px;"><p>🤝🏻 人際關係</p><span class="value" id="val-rel">0 (・∀體)</span></div>
+            <input type="range" min="-5" max="5" value="0" oninput="updateRange('val-rel', this.value)">
+        </div>
+
+        <div class="card">
+            <div class="window-header">NOTE.TXT</div>
+            <textarea id="emotionText" rows="3" placeholder="此刻的心情是..."></textarea>
+        </div>
+
+        <div class="card">
+            <div class="window-header">STRESS_INDEX.EXE</div>
+            <div class="label-group"><p>🌡️ 內耗指數</p><span class="value" id="val-main">50 (・∀體)</span></div>
+            <input type="range" id="mainStress" min="1" max="100" value="50" oninput="updateRange('val-main', this.value); calculatePrice()">
+        </div>
+        <button class="submit" onclick="submitForm()">開始拍賣你的內耗</button>
+    </div>
+
+    <div class="container" id="infoPage" style="display: none; text-align: center;">
+        <div class="card" style="padding: 60px 20px;">
+            <h2 style="color: #4a69bd;">正在讀取...</h2>
+            <p style="font-size: 24px; font-weight: 900;">請看向前方大螢幕</p>
+            <p style="color: #adb5bd; margin-top: 20px;">收據將在動畫播完後自動列印</p>
+            <br>
+            <button class="submit" onclick="resetPage()" style="background: #adb5bd;">返回表單</button>
+        </div>
+    </div>
+</div>
+
+<div id="receipt-print-area">
+    <div class="receipt-container">
+        <img id="r-img" class="bg-img" src="" alt="">
+        <div class="overlay-price" id="res-price"></div>
+        <div class="receipt-text-block">
+            <div id="res-date" class="receipt-line">Date: </div>
+            <div id="res-purchaser" class="receipt-line">Purchaser Info: </div>
+            <div id="res-buyer" class="receipt-line">Buyer Name: </div>
+            <div id="res-seller" class="receipt-line">Seller Name: </div>
+            <div id="res-slogan" class="receipt-line slogan-block"></div>
+            <div id="res-total" class="receipt-line total-line">Total Amount Paid: <span class="total-highlight"></span></div>
+        </div>
+        <div class="receipt-footer-block">
+            <div class="footer-disclaimer">此交易不可逆轉<br>最終銷售。</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const slogans = ["你不需要活得毫無瑕疵，不完美才是靈魂最真實的收藏品。", "世界其實沒有那麼多人在看你。放鬆下來，躲在陰影裡休息也沒關係。", "憤怒是渴望被愛的一種變體。這一次，別再把矛頭指向傷痕累累的自己了。", "人生不是每一步都需要精準的投報率。現在走錯的路，也會是未來沿途的風景。", "承認自己的脆弱，並不代表你輸了，而是你終於開始對自己誠實。", "那些讓你失眠的細節，在歲月的長河裡，其實都只是微小的塵埃。"
+        ,"你已經很努力了，不必再用焦慮證明自己的認真。", "有些事沒有標準答案，而你也不需要永遠正確。", "不是因為你不夠好才會內耗，而是因為你太想把一切做好。", "那些讓你反覆糾結的事，終究不會定義你的人生。", "請把對別人的溫柔，留一點給自己。", "你可以不完美、不勇敢、不堅強，但依然值得被喜歡。", "有些重量該放下了，因為你不是用來背負一切的。","別把自己困在想像的評分標準裡。","你不是問題本身，只是暫時被問題困住了。","人生不是競標會，你的價值不需要等待別人出價。"
+     ];
+    const bc = new BroadcastChannel('spirit_channel');
+    const images = ["狂熱收藏家.png", "社交恐懼體.png", "破壞狂.png", "精算師.png"];
+    const roleNames = ["狂熱收藏家", "社交恐懼體", "破壞狂", "精算師"];
+
+    function updateRange(id, val) {
+        const icons = ["(・∀體)", "(｡•́︿•̀｡)", "( ಠ ಠ )"];
+        document.getElementById(id).innerText = val + " " + (val > 25 ? icons[1] : icons[0]);
+    }
+
+    function resetPage() { location.reload(); }
+    
+    function calculatePrice() {
+        const stressVal = parseInt(document.getElementById("mainStress").value) || 50;
+        const finalPrice = (stressVal * 1000) + 145;
+        document.getElementById("res-price").innerText = finalPrice + "$";
+        return finalPrice;
+    }
+
+    function analyzeCharacter(text) {
+        const txt = text.toLowerCase();
+        let scores = [0,0,0,0];
+        const keys = [["完美","收藏"], ["人際","視線"], ["憤怒","爆炸"], ["未來","成本"]];
+        keys.forEach((g, i) => g.forEach(k => { if(txt.includes(k)) scores[i]++; }));
+        return scores.indexOf(Math.max(...scores));
+    }
+
+    bc.onmessage = function(e) {
+        if (e.data && e.data.action === 'ANIMATION_ENDED') {
+            window.print();
+            setTimeout(() => { location.reload(); }, 2000);
+        }
+    };
+
+    function submitForm() {
+        const stressVal = parseInt(document.getElementById("mainStress").value);
+        const val = calculatePrice();
+        const inputName = document.getElementById("userName").value.trim() || "無名者";
+        
+        let targetVideo = (stressVal <= 25) ? "1.mp4" : (stressVal <= 50) ? "2.mp4" : (stressVal <= 75) ? "calm.mp4" : (stressVal <= 85) ? "calm.mp4" :"chaos.mp4";
+        
+        let idx = 0;
+        if (targetVideo === "1.mp4") idx = 3;
+        else if (targetVideo === "2.mp4") idx = 2;
+        else if (targetVideo === "calm.mp4") idx = 0;
+        else if (targetVideo === "chaos.mp4") idx = 1;
+        
+        const now = new Date();
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthStr = months[now.getMonth()];
+        const day = String(now.getDate()).padStart(2, '0');
+        const year = now.getFullYear();
+        const timeStr = now.toTimeString().split(' ')[0];
+
+        // 更新收據顯示
+        document.getElementById("res-date").innerText = `Date: ${monthStr}-${day}-${year} | Time: ${timeStr} PST`;
+        
+        // 🛠️ 3. 這裡修改：Purchaser Info 欄位後面直接寫死留空
+        document.getElementById("res-purchaser").innerText = `Purchaser Info: `;
+        
+        document.getElementById("res-buyer").innerText = `Buyer Name: ${roleNames[idx]}`;
+        document.getElementById("res-seller").innerText = `Seller Name: ${inputName}`;
+        
+        // 🛠️ 4. 這裡修改：隨機抽取的中文心靈語錄，改填入剛才建在 seller 下方的新區塊
+        document.getElementById("res-slogan").innerText = slogans[Math.floor(Math.random() * slogans.length)];
+        
+        document.getElementById("res-total").innerHTML = `Total Amount Paid: <span class="total-highlight">$${val}</span>`;
+        document.getElementById("r-img").src = images[idx];
+        
+        // 在 submitForm 函數內，找到 database.ref('spirit_cmd').set(...) 並修改為：
+// 在 index.html 中，修改發送到 Firebase 的內容
+// 確保您在點擊提交按鈕時，執行的是這一段：
+// 替換 index.html 中 submitForm 裡面的這一段
+if (typeof database !== 'undefined') {
+    database.ref('spirit_cmd').set({
+        action: 'PLAY_VIDEO',
+        src: targetVideo,
+        timestamp: Date.now(),
+        // 這是完整打包的收據內容，確保上面所有的 ID 都有正確抓到值
+        receiptData: {
+            imgSrc: document.getElementById("r-img").src,
+            price: document.getElementById("res-price").innerText,
+            date: document.getElementById("res-date").innerText,
+            purchaser: document.getElementById("res-purchaser").innerText,
+            buyer: document.getElementById("res-buyer").innerText,
+            seller: document.getElementById("res-seller").innerText,
+            slogan: document.getElementById("res-slogan").innerText,
+            total: document.getElementById("res-total").innerHTML,
+            
+        }
+    }).then(() => {
+        console.log("✅ 數據完整發送成功！");
+    }).catch((err) => {
+        console.error("❌ Firebase 發送失敗:", err);
+        setTimeout(() => { window.print(); }, 1000);ㄋ
+    });
+}
+
+        bc.postMessage({ src: targetVideo, action: 'PLAY_VIDEO' });
+        
+        document.getElementById("formPage").style.display = "none";
+        document.getElementById("infoPage").style.display = "block";
+    }
+
+    window.onload = function() { calculatePrice(); };
+</script>
+</body>
+</html>
